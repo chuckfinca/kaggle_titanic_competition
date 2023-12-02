@@ -200,11 +200,14 @@ if __name__ == '__main__':
     training_examples = x_train.shape[0]
 
     numpy.random.seed(0)
-    weights_between_input_and_hidden = numpy.random.uniform(-1, 1, (number_of_features, number_of_hidden_neurons))
-    bias_hidden_layer = numpy.zeros((1, number_of_hidden_neurons))
 
+    load_from_file = True
+    if load_from_file:
+        weights_between_input_and_hidden = numpy.loadtxt('w1.txt', dtype=int)
+        weights_between_hidden_and_output = numpy.reshape((numpy.loadtxt('w2.txt', dtype=int)), (-1, 1))
+    else:
+        weights_between_input_and_hidden = numpy.random.uniform(-1, 1, (number_of_features, number_of_hidden_neurons))
     weights_between_hidden_and_output = numpy.random.uniform(-1, 1, (number_of_hidden_neurons, 1))
-    bias_output = numpy.zeros((1, 1))
 
     learning_rate = 0.01
     epochs = 100
