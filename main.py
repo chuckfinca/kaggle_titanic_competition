@@ -2,14 +2,20 @@ import numpy
 import pandas
 import matplotlib.pyplot as plt1
 
-# Hyperparameters and other controls
-
-load_from_file = False
-train_network = True
+# Hyperparameters  other controls
 learning_rate = 0.005
 epochs = 300
 normalize = True
 shuffle = False
+
+predict_mode = False
+
+# to train predit_mode must be False
+train_network = False
+
+w1 = 'w1.txt'
+w2 = 'w2.txt'
+load_weights_from_file = False
 
 
 def sigmoid(x):
@@ -21,7 +27,13 @@ def mean_squared_error(pred, actual):
     return (actual - pred) ** 2
 
 
-def train(x_data_frame: pandas.DataFrame, y_series: pandas.Series, w1: numpy.ndarray, w2: numpy.ndarray, alpha=0.01, epochs=10):
+def train(x_data_frame: pandas.DataFrame, y_series: pandas.Series, w1: numpy.ndarray, w2: numpy.ndarray, learning_rate=0.01, epochs=10):
+
+    x_train = x_data_frame.iloc[:800, :]
+    x_validate = x_data_frame.iloc[800:, :]
+
+    y_train = y_series.iloc[:800, ]
+    y_validate = y_series.iloc[800:, ]
 
     acc = []
     losss = []
@@ -29,8 +41,8 @@ def train(x_data_frame: pandas.DataFrame, y_series: pandas.Series, w1: numpy.nda
         loss_array = []
         right = []
         true_values = []
-        for i in range(len(x_data_frame)):
-            x = x_data_frame.values[i:i + 1]
+        for i in range(len(x_train)):
+            x = x_train.values[i:i + 1]
 
             # Forward Pass
 
@@ -48,7 +60,7 @@ def train(x_data_frame: pandas.DataFrame, y_series: pandas.Series, w1: numpy.nda
             z2 = a1.dot(w2)  # edge going in to the output layer
             out = sigmoid(z2)  # edge going out from the output layer
 
-            true_value = y_series[i + 1]
+            true_value = y_train.values[i]
             pred = out[0][0]
             loss = mean_squared_error(pred, true_value)
             loss_array.append(loss)
@@ -78,10 +90,10 @@ def train(x_data_frame: pandas.DataFrame, y_series: pandas.Series, w1: numpy.nda
             w1_adj = x.T.dot(d_loss_z1)
 
             # Updating parameters
-            w1 = w1 - (alpha * w1_adj)
-            w2 = w2 - (alpha * w2_adj)
+            w1 = w1 - (learning_rate * w1_adj)
+            w2 = w2 - (learning_rate * w2_adj)
 
-        # evaluate
+        # validate
 
         right = []
         loss_validation = []
@@ -125,6 +137,70 @@ def feed_forward(x: pandas.Series, w1: numpy.ndarray, w2: numpy.ndarray):
     z2 = a1.dot(w2)  # edge going in to the output layer
     out = sigmoid(z2)  # edge going out from the output layer
     return out[0][0]
+
+
+def train_neural_network(x_train: pandas.DataFrame):
+
+    if shuffle:
+        x_train = x_train.sample(frac = 1)
+
+    y_train = x_train.pop("Survived")
+
+    if normalize:
+        x_train = normalize_data(x_train)
+
+    number_of_hidden_neurons = 25
+    number_of_features = x_train.shape[1]
+
+    numpy.random.seed(0)
+
+    if load_weights_from_file:
+        weights_between_input_and_hidden = numpy.loadtxt(w1, dtype=int)
+        weights_between_hidden_and_output = numpy.reshape((numpy.loadtxt(w2, dtype=int)), (-1, 1))
+    else:
+        weights_between_input_and_hidden = numpy.random.uniform(-1, 1, (number_of_features, number_of_hidden_neurons))
+        weights_between_hidden_and_output = numpy.random.uniform(-1, 1, (number_of_hidden_neurons, 1))
+
+    # train
+    acc, losss, weights_between_input_and_hidden, weights_between_hidden_and_output = train(x_train, y_train, weights_between_input_and_hidden, weights_between_hidden_and_output,
+                               learning_rate, epochs)
+
+    numpy.savetxt('w1.txt', weights_between_input_and_hidden, fmt='%1.9f')
+    numpy.savetxt('w2.txt', weights_between_hidden_and_output, fmt='%1.9f')
+    # b = numpy.loadtxt('test1.txt', dtype=int)
+
+    # plotting accuracy
+    plt1.figure()
+    plt1.plot(acc)
+    plt1.ylabel('Accuracy')
+    plt1.xlabel("Epochs:")
+    plt1.savefig("accuracy.png")
+
+    # plotting Loss
+    plt1.figure()
+    plt1.plot(losss)
+    plt1.ylabel('Loss')
+    plt1.xlabel("Epochs:")
+    plt1.savefig("loss.png")
+
+def test(x_test: pandas.DataFrame):
+    x_test = x_test.drop(columns=["Survived"])
+
+    if normalize:
+        x_test = normalize_data(x_test)
+
+    weights_between_input_and_hidden = numpy.loadtxt(w1, dtype=int)
+    weights_between_hidden_and_output = numpy.reshape((numpy.loadtxt(w2, dtype=int)), (-1, 1))
+
+    y_preds = []
+    print("PassengerId,Survived")
+    for i in range(len(x_test)):
+        x = x_test.values[i:i + 1]
+        y_pred = feed_forward(x, weights_between_input_and_hidden, weights_between_hidden_and_output)
+        y_pred_rounded = round(y_pred)
+        print(f"{x_test.index[i]},{y_pred_rounded}")
+        y_preds.append(y_pred_rounded)
+    print(f"{sum(y_preds) / len(y_preds)}")
 
 
 # data preparation
@@ -208,77 +284,35 @@ def convert_categories_to_numbers(data: pandas.DataFrame, column_name):
     return data
 
 
+def normalize_data(data: pandas.DataFrame) -> pandas.DataFrame:
+    df_z_scaled = data
+
+    # apply normalization techniques
+    # thanks https://www.geeksforgeeks.org/data-normalization-with-pandas/
+    for column in df_z_scaled.columns:
+        df_z_scaled[column] = (df_z_scaled[column] - df_z_scaled[column].mean()) / df_z_scaled[column].std()
+    return df_z_scaled
+
 
 if __name__ == '__main__':
+    if predict_mode:
+        # Input to the model is an array with format:
+        # PassengerId	Pclass	Sex	    Age     SibSp	Parch	Fare	Embarked	Ticket Number
+        # 1             3       1	    22.0	1	    0	    7.25	2	        21171
+        example = [1, 3, 1, 22.0, 1, 0, 7.25, 2, 21171]
 
-    x_train, x_test = prepare_data()
-
-    if shuffle:
-        x_train = x_train.sample(frac = 1)
-
-    y_train = x_train.pop("Survived")
-    x_test = x_test.drop(columns=["Survived"])
-
-    if normalize:
-        df_z_scaled = x_train
-
-        # apply normalization techniques
-        # thanks https://www.geeksforgeeks.org/data-normalization-with-pandas/
-        for column in df_z_scaled.columns:
-            df_z_scaled[column] = (df_z_scaled[column] - df_z_scaled[column].mean()) / df_z_scaled[column].std()
-        x_train = df_z_scaled
-
-    number_of_hidden_neurons = 25
-    number_of_features = x_train.shape[1]
-    training_examples = x_train.shape[0]
-
-    numpy.random.seed(0)
-
-    if load_from_file:
-        weights_between_input_and_hidden = numpy.loadtxt('w1.txt', dtype=int)
-        weights_between_hidden_and_output = numpy.reshape((numpy.loadtxt('w2.txt', dtype=int)), (-1, 1))
-    else:
-        weights_between_input_and_hidden = numpy.random.uniform(-1, 1, (number_of_features, number_of_hidden_neurons))
-        weights_between_hidden_and_output = numpy.random.uniform(-1, 1, (number_of_hidden_neurons, 1))
-
-    x_training = x_train.iloc[:800, :]
-    x_validate = x_train.iloc[800:, :]
-
-    y_training = y_train.iloc[:800, ]
-    y_validate = y_train.iloc[800:, ]
-
-    if train_network:
-
-        # train
-
-        acc, losss, weights_between_input_and_hidden, weights_between_hidden_and_output = train(x_training, y_training, weights_between_input_and_hidden, weights_between_hidden_and_output,
-                                   learning_rate, epochs)
-
-        numpy.savetxt('w1.txt', weights_between_input_and_hidden, fmt='%d')
-        numpy.savetxt('w2.txt', weights_between_hidden_and_output, fmt='%d')
-        # b = numpy.loadtxt('test1.txt', dtype=int)
-
-        # plotting accuracy
-        plt1.figure()
-        plt1.plot(acc)
-        plt1.ylabel('Accuracy')
-        plt1.xlabel("Epochs:")
-        plt1.savefig("accuracy.png")
-
-        # plotting Loss
-        plt1.figure()
-        plt1.plot(losss)
-        plt1.ylabel('Loss')
-        plt1.xlabel("Epochs:")
-        plt1.savefig("loss.png")
+        w1 = numpy.loadtxt(w1, dtype=int)
+        w2 = numpy.reshape((numpy.loadtxt(w2, dtype=int)), (-1, 1))
+        prediction = feed_forward(example, w1, w2)
+        if round(prediction) == 0:
+            print(f"The model predicts that this person died on the titanic.")
+        else:
+            print(f"The model predicts that this person lived!")
 
     else:
-        y_preds = []
-        print("PassengerId,Survived")
-        for i in range(len(x_test)):
-            x = x_test.values[i:i + 1]
-            y_pred = feed_forward(x, weights_between_input_and_hidden, weights_between_hidden_and_output)
-            y_pred_rounded = round(y_pred)
-            print(f"{x_test.index[i]},{y_pred_rounded}")
-            y_preds.append(y_pred_rounded)
-        print(f"{sum(y_preds) / len(y_preds)}")
+        x_train, x_test = prepare_data()
+
+        if train_network:
+            train_neural_network(x_train)
+        else:
+            test(x_test)
