@@ -2,25 +2,26 @@ import numpy
 import pandas
 import matplotlib.pyplot as plt1
 
+# Hyperparameters and other controls
 
-load_from_file = True
-train_network = False
-learning_rate = 0.01
-epochs = 500
+load_from_file = False
+train_network = True
+learning_rate = 0.005
+epochs = 300
 normalize = True
 shuffle = False
 
 
 def sigmoid(x):
     y = numpy.float128(x)
-    return (1 / (1 + numpy.exp(-y)))
+    return 1 / (1 + numpy.exp(-y))
 
 
 def mean_squared_error(pred, actual):
     return (actual - pred) ** 2
 
 
-def train(x_train: pandas.DataFrame, y_train: pandas.Series, w1: numpy.ndarray, w2: numpy.ndarray, alpha=0.01, epochs=10):
+def train(x_data_frame: pandas.DataFrame, y_series: pandas.Series, w1: numpy.ndarray, w2: numpy.ndarray, alpha=0.01, epochs=10):
 
     acc = []
     losss = []
@@ -28,8 +29,8 @@ def train(x_train: pandas.DataFrame, y_train: pandas.Series, w1: numpy.ndarray, 
         loss_array = []
         right = []
         true_values = []
-        for i in range(len(x_train)):
-            x = x_train.values[i:i + 1]
+        for i in range(len(x_data_frame)):
+            x = x_data_frame.values[i:i + 1]
 
             # Forward Pass
 
@@ -46,11 +47,8 @@ def train(x_train: pandas.DataFrame, y_train: pandas.Series, w1: numpy.ndarray, 
             # (1,) = (25,) ⋅ (25, 1)
             z2 = a1.dot(w2)  # edge going in to the output layer
             out = sigmoid(z2)  # edge going out from the output layer
-            # print("----")
-            # print(i+1)
-            # print(x)
-            # print(len(y_train))
-            true_value = y_train[i + 1]
+
+            true_value = y_series[i + 1]
             pred = out[0][0]
             loss = mean_squared_error(pred, true_value)
             loss_array.append(loss)
@@ -62,7 +60,7 @@ def train(x_train: pandas.DataFrame, y_train: pandas.Series, w1: numpy.ndarray, 
             # Backpropagation
 
             # Calculate derivative of loss with respect to output
-            d_loss_out = 2 * (loss - true_value)
+            d_loss_out = 2 * (pred - true_value)
 
             # Calculate derivative of sigmoid (output layer)
             d_out_z2 = out * (1 - out) # = sigmoid(z2) * (1 - sigmoid(z2))
@@ -91,10 +89,10 @@ def train(x_train: pandas.DataFrame, y_train: pandas.Series, w1: numpy.ndarray, 
             x = x_validate.values[i:i + 1]
             y = y_validate[y_validate.index[i]]
 
-            prediction = f_forward(x, w1, w2)
-            pred_rounded = round(prediction)
-            right.append(pred_rounded == y)
-            validation_loss = mean_squared_error(prediction, y)
+            prediction_with_confidence = feed_forward(x, w1, w2)
+            prediction = round(prediction_with_confidence)
+            right.append(prediction == y)
+            validation_loss = mean_squared_error(prediction_with_confidence, y)
             loss_validation.append(validation_loss)
 
         mean_loss = sum(loss_validation) / len(x_validate)
@@ -107,7 +105,12 @@ def train(x_train: pandas.DataFrame, y_train: pandas.Series, w1: numpy.ndarray, 
     return (acc, losss, w1, w2)
 
 
-def f_forward(x: pandas.Series, w1: numpy.ndarray, w2: numpy.ndarray):
+def feed_forward(x: pandas.Series, w1: numpy.ndarray, w2: numpy.ndarray):
+    """
+    Returns a fractional prediction between 0 and 1.
+    The closer to 0 or 1 the more confident the prediction
+    """
+
     # hidden
     # (25,) = (8,) ⋅ (8, 25)
     # NOTE: empty strings in the notation mean that dimension is not used.
@@ -274,7 +277,7 @@ if __name__ == '__main__':
         print("PassengerId,Survived")
         for i in range(len(x_test)):
             x = x_test.values[i:i + 1]
-            y_pred = f_forward(x, weights_between_input_and_hidden, weights_between_hidden_and_output)
+            y_pred = feed_forward(x, weights_between_input_and_hidden, weights_between_hidden_and_output)
             y_pred_rounded = round(y_pred)
             print(f"{x_test.index[i]},{y_pred_rounded}")
             y_preds.append(y_pred_rounded)
