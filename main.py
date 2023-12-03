@@ -2,15 +2,21 @@ import numpy
 import pandas
 import matplotlib.pyplot as plt1
 
+# ANN that performs the task outlined in https://www.kaggle.com/competitions/titanic/overview
+# i.e. "Use machine learning to create a model that predicts which passengers survived the Titanic shipwreck."
+
+# look at the main function below to see how it works
+
 # Hyperparameters  other controls
 learning_rate = 0.005
 epochs = 300
 normalize = True
 shuffle = False
 
-predict_mode = False
+# for manual predictions set inference_mode to True
+inference_mode = True
 
-# to train predit_mode must be False
+# to train inference_mode must be False
 train_network = False
 
 w1 = 'w1.txt'
@@ -155,8 +161,8 @@ def train_neural_network(x_train: pandas.DataFrame):
     numpy.random.seed(0)
 
     if load_weights_from_file:
-        weights_between_input_and_hidden = numpy.loadtxt(w1, dtype=int)
-        weights_between_hidden_and_output = numpy.reshape((numpy.loadtxt(w2, dtype=int)), (-1, 1))
+        weights_between_input_and_hidden = numpy.loadtxt(w1, dtype=float)
+        weights_between_hidden_and_output = numpy.reshape((numpy.loadtxt(w2, dtype=float)), (-1, 1))
     else:
         weights_between_input_and_hidden = numpy.random.uniform(-1, 1, (number_of_features, number_of_hidden_neurons))
         weights_between_hidden_and_output = numpy.random.uniform(-1, 1, (number_of_hidden_neurons, 1))
@@ -167,7 +173,7 @@ def train_neural_network(x_train: pandas.DataFrame):
 
     numpy.savetxt('w1.txt', weights_between_input_and_hidden, fmt='%1.9f')
     numpy.savetxt('w2.txt', weights_between_hidden_and_output, fmt='%1.9f')
-    # b = numpy.loadtxt('test1.txt', dtype=int)
+    # b = numpy.loadtxt('test1.txt', dtype=float)
 
     # plotting accuracy
     plt1.figure()
@@ -295,15 +301,24 @@ def normalize_data(data: pandas.DataFrame) -> pandas.DataFrame:
 
 
 if __name__ == '__main__':
-    if predict_mode:
-        # Input to the model is an array with format:
+    if inference_mode:
+        # Input to the model is a csv named "inference.csv" in the root folder with format:
         # PassengerId	Pclass	Sex	    Age     SibSp	Parch	Fare	Embarked	Ticket Number
         # 1             3       1	    22.0	1	    0	    7.25	2	        21171
-        example = [1, 3, 1, 22.0, 1, 0, 7.25, 2, 21171]
 
-        w1 = numpy.loadtxt(w1, dtype=int)
-        w2 = numpy.reshape((numpy.loadtxt(w2, dtype=int)), (-1, 1))
-        prediction = feed_forward(example, w1, w2)
+        data = convert_to_data_frames("inference.csv")
+
+        # data.set_index('PassengerId', inplace=True)
+        w1 = numpy.loadtxt(w1, dtype=float)
+        w2 = numpy.reshape((numpy.loadtxt(w2, dtype=float)), (-1, 1))
+
+        # You can't normalize a single data point because there is nothing to compare it to.
+        # if normalize:
+        #     data = normalize_data(data)
+
+        x = data.values[0:1]
+        prediction = feed_forward(x, w1, w2)
+
         if round(prediction) == 0:
             print(f"The model predicts that this person died on the titanic.")
         else:
